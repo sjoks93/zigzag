@@ -1,23 +1,22 @@
-import onnx
 from zigzag.api import get_hardware_performance_zigzag
-from zigzag.inputs.examples.mapping.tpu_like import mapping as mapping_tpu
-from zigzag.inputs.examples.mapping.edge_tpu_like import mapping as mapping_edge_tpu
-from zigzag.inputs.examples.mapping.tesla_npu_like import mapping as mapping_tesla_npu
-from zigzag.inputs.examples.mapping.meta_prototype_like import (
-    mapping as mapping_meta_prototype,
-)
-
 from zigzag.visualization.results.plot_cme import bar_plot_cost_model_evaluations_total
 
+from inputs.hardware.c_k import accelerator as accelerator_c_k
+from inputs.hardware.ox_k import accelerator as accelerator_ox_k
+from inputs.hardware.ox_fx_fy import accelerator as accelerator_ox_fx_fy
+from inputs.mapping.mapping_c_k import mapping as mapping_c_k
+from inputs.mapping.mapping_ox_k import mapping as mapping_ox_k
+from inputs.mapping.mapping_ox_fx_fy import mapping as mapping_ox_fx_fy
+
+
 # Path to the workload onnx model
+# onnx_model_path = "zigzag/inputs/examples/workload/resnet18.onnx"
 onnx_model_path = "lab1/resnet18_first_layer.onnx"
-# OR directly load in the onnx model
-workload_model = onnx.load(onnx_model_path, load_external_data=False)
 
 # List of hardware architectures we run our experiment for
-hardwares = ["tpu", "edge-tpu", "tesla-npu", "meta-prototype"]
+hardwares = [accelerator_c_k, accelerator_ox_k, accelerator_ox_fx_fy]
 # List of mappings for each hardware (encodes the spatial dataflow)
-mappings = [mapping_tpu, mapping_edge_tpu, mapping_tesla_npu, mapping_meta_prototype]
+mappings = [mapping_c_k, mapping_ox_k, mapping_ox_fx_fy]
 
 cmes = []
 for (hardware, mapping) in zip(hardwares, mappings):
@@ -27,19 +26,15 @@ for (hardware, mapping) in zip(hardwares, mappings):
     energy, latency, results = get_hardware_performance_zigzag(
         onnx_model_path,
         hardware,
-        mapping=mapping,
+        mapping,
         opt="latency",
         pickle_filename=pickle_filename,
     )
-    print(
-        f"Total onnx model (energy, latency) performance = ({energy:.3e}, {latency:.3e})."
-    )
     cmes.append(results[0][0])
 
-
+x_labels = [hardware.name for hardware in hardwares]
 bar_plot_cost_model_evaluations_total(
     cmes,
-    labels=hardwares,
-    fig_title="Best latency mapping found",
+    labels=x_labels,
     save_path="lab3/outputs/plot_total.png",
 )
