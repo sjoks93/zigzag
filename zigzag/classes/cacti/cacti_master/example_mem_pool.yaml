@@ -544,3 +544,73 @@
   size_bit: 10240
   size_byte: 1280
 
+3145728_Byte_256_BW_1_1_0:
+  IO_bus_width: 256
+  area: 184.262
+  bank_count: 1
+  cost:
+    read_word: 1.73202
+    write_word: 1.71622
+  ex_rd_port: '1'
+  ex_wr_port: '1'
+  memory_type: sram
+  rd_wr_port: '0'
+  size_bit: 25165824
+  size_byte: 3145728
+
+32768_Byte_256_BW_0_0_2:
+  IO_bus_width: 256
+  area: 1.972756
+  bank_count: 1
+  cost:
+    read_word: 0.102139
+    write_word: 0.20094
+  ex_rd_port: '0'
+  ex_wr_port: '0'
+  memory_type: sram
+  rd_wr_port: '2'
+  size_bit: 262144
+  size_byte: 32768
+
+1073741824_Byte_64_BW_0_0_2:
+  IO_bus_width: 64
+  area: 54634.0
+  bank_count: 1
+  cost:
+    read_word: 20.9748
+    write_word: 21.1964
+  ex_rd_port: '0'
+  ex_wr_port: '0'
+  memory_type: dram
+  rd_wr_port: '2'
+  size_bit: 8589934592
+  size_byte: 1073741824
+
+32768_Byte_128_BW_0_0_2:
+  IO_bus_width: 128
+  area: 1.798394
+  bank_count: 1
+  cost:
+    read_word: 0.0752772
+    write_word: 0.106328
+  ex_rd_port: '0'
+  ex_wr_port: '0'
+  memory_type: sram
+  rd_wr_port: '2'
+  size_bit: 262144
+  size_byte: 32768
+
+1048576_Byte_128_BW_0_0_2:
+  IO_bus_width: 128
+  area: 56.7828
+  bank_count: 1
+  cost:
+    read_word: 0.845605
+    write_word: 0.689627
+  ex_rd_port: '0'
+  ex_wr_port: '0'
+  memory_type: sram
+  rd_wr_port: '2'
+  size_bit: 8388608
+  size_byte: 1048576
+
