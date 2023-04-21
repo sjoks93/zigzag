@@ -15,5 +15,6 @@ workload = {
         "operand_precision": {"O": 16, "O_final": 8, "W": 8, "I": 8},
         "operand_source": {"W": [], "I": []},
         "constant_operands": ["I", "W"],
+        "padding": {"IY": (3, 2), "IX": (3, 2)},
     },
 }
