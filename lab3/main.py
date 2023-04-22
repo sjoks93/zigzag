@@ -28,6 +28,7 @@ for (hardware, mapping) in zip(hardwares, mappings):
         hardware,
         mapping,
         opt="latency",
+        dump_filename_pattern=f"lab3/outputs/{hardware.name}.json",
         pickle_filename=pickle_filename,
     )
     cmes.append(results[0][0])
