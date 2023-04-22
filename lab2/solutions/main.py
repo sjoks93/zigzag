@@ -1,8 +1,15 @@
-import re
+import os
+import sys
 import argparse
+import re
 
+sys.path.insert(0, os.getcwd())
 from zigzag.classes.stages import *
-from zigzag.visualization.results.print_mapping import print_mapping
+
+
+from zigzag.visualization.results.plot_cme import (
+    bar_plot_cost_model_evaluations_breakdown,
+)
 
 # Get the onnx model, the mapping and accelerator arguments
 parser = argparse.ArgumentParser(description="Setup zigzag inputs")
@@ -45,24 +52,26 @@ experiment_id = f"{hw_name}-{wl_name}"
 # The second argument of this init are the arguments required for these different stages.
 mainstage = MainStage(
     [  # Initializes the MainStage as entry point
-        WorkloadParserStage,  # Parses a user-defined workload
+        ONNXModelParserStage,  # Parses the ONNX Model into the workload
         AcceleratorParserStage,  # Parses the accelerator
-        SimpleSaveStage,  # Saves all received CMEs information to a json
+        CompleteSaveStage,  # Saves all received CMEs information to a json
         WorkloadStage,  # Iterates through the different layers in the workload
         SpatialMappingGeneratorStage,  # Generates multiple spatial mappings (SM)
         MinimalLatencyStage,  # Reduces all CMEs, returning minimal latency one
-        LomaStage,  # Generates multiple temporal mappings (TM)
+        LomaStage,  # Converts defined temporal_ordering to temporal mapping
         CostModelStage,  # Evaluates generated SM and TM through cost model
     ],
     accelerator=args.accelerator,  # required by AcceleratorParserStage
     workload=args.model,  # required by ONNXModelParserStage
     mapping=args.mapping,  # required by ONNXModelParserStage
-    dump_filename_pattern=f"lab2/outputs/{experiment_id}-?-auto-user-defined.json",  # output file save pattern, ? will be replaced
+    dump_filename_pattern=f"lab2/outputs/{experiment_id}-?.json",  # output file save pattern, ? will be replaced
     loma_lpf_limit=6,  # required by LomaStage
     loma_show_progress_bar=True,  # shows a progress bar while iterating over temporal mappings
 )
 
 # Launch the MainStage
-results = mainstage.run()
-cme = results[0][0]
-print_mapping(cme)  # print the temporal mapping
+answers = mainstage.run()
+# Plot the energy and latency breakdown of our cost model evaluation
+cme = answers[0][0]
+save_path = "lab2/outputs/breakdown.png"
+bar_plot_cost_model_evaluations_breakdown([cme], save_path=save_path, xtick_rotation=0)

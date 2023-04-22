@@ -10,12 +10,12 @@ mapping = {
             ("K", 2),
             # Outermost loop
         ],
-        "core_allocation": 1,  # not important for now
+        "core_allocation": 1,
         "memory_operand_links": {
             "O": "O",
             "W": "I2",
             "I": "I1",
-        },  # not important for now
+        },
     },
     "default": {  # used if layer.name is not found in dict
         "spatial_mapping": {"D1": ("K", 32), "D2": ("C", 32)},

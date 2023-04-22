@@ -1,6 +1,11 @@
-from zigzag.classes.stages import *
+import os
+import sys
 import argparse
 import re
+
+sys.path.insert(0, os.getcwd())
+from zigzag.classes.stages import *
+
 
 from zigzag.visualization.results.plot_cme import (
     bar_plot_cost_model_evaluations_breakdown,
@@ -59,7 +64,7 @@ mainstage = MainStage(
     accelerator=args.accelerator,  # required by AcceleratorParserStage
     workload=args.model,  # required by ONNXModelParserStage
     mapping=args.mapping,  # required by ONNXModelParserStage
-    dump_filename_pattern=f"lab1/outputs/{experiment_id}-?-fixed.json",  # output file save pattern, ? will be replaced
+    dump_filename_pattern=f"lab1/outputs/{experiment_id}-?.json",  # output file save pattern, ? will be replaced
     loma_lpf_limit=6,  # required by LomaStage
     loma_show_progress_bar=True,  # shows a progress bar while iterating over temporal mappings
 )
