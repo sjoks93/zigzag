@@ -204,17 +204,10 @@ def get_memory_hierarchy(multiplier_array):
     return memory_hierarchy_graph
 
 
-def get_dataflows():
-    return [
-        {"D1": ("OX", 64), "D2": ("FX", 4), "D3": ("FY", 4)},
-    ]
-
-
 def get_core(id, quad_core=False):
     operational_array = get_multiplier_array()
     memory_hierarchy = get_memory_hierarchy(operational_array)
-    dataflows = get_dataflows()
-    core = Core(id, operational_array, memory_hierarchy, dataflows)
+    core = Core(id, operational_array, memory_hierarchy)
     return core
 
 

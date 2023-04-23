@@ -213,8 +213,7 @@ def get_dataflows():
 def get_core(id):
     operational_array = get_multiplier_array()
     memory_hierarchy = get_memory_hierarchy(operational_array)
-    dataflows = get_dataflows()
-    core = Core(id, operational_array, memory_hierarchy, dataflows)
+    core = Core(id, operational_array, memory_hierarchy)
     return core
 
 
