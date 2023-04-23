@@ -1,0 +1,90 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "run lab1/main.py",
+            "type": "python",
+            "request": "launch",
+            "program": "lab1/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--model",
+                "lab1/resnet18_first_layer.onnx",
+                "--accelerator",
+                "zigzag.inputs.examples.hardware.TPU_like",
+                "--mapping",
+                "mapping"
+            ],
+        },
+        {
+            "name": "run lab2/main.py",
+            "type": "python",
+            "request": "launch",
+            "program": "lab2/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--model",
+                "lab2/resnet18_first_layer.onnx",
+                "--accelerator",
+                "zigzag.inputs.examples.hardware.TPU_like",
+                "--mapping",
+                "mapping"
+            ],
+        },
+        {
+            "name": "run lab2/solutions/main.py",
+            "type": "python",
+            "request": "launch",
+            "program": "lab2/solutions/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--model",
+                "lab2/resnet18_first_layer.onnx",
+                "--accelerator",
+                "zigzag.inputs.examples.hardware.TPU_like",
+                "--mapping",
+                "mapping"
+            ],
+        },
+        {
+            "name": "run lab2/main_user_defined.py",
+            "type": "python",
+            "request": "launch",
+            "program": "lab2/main_user_defined.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--model",
+                "resnet18_first_layer",
+                "--accelerator",
+                "zigzag.inputs.examples.hardware.TPU_like",
+                "--mapping",
+                "mapping"
+            ],
+        },
+        {
+            "name": "run lab2/solutions/main_user_defined.py",
+            "type": "python",
+            "request": "launch",
+            "program": "lab2/solutions/main_user_defined.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--model",
+                "resnet18_first_layer",
+                "--accelerator",
+                "zigzag.inputs.examples.hardware.TPU_like",
+                "--mapping",
+                "mapping"
+            ],
+        },
+        {
+            "name": "run lab3/main.py",
+            "type": "python",
+            "request": "launch",
+            "program": "lab3/main.py",
+            "console": "integratedTerminal",
+        },
+    ],
+}
