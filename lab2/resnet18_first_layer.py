@@ -5,7 +5,7 @@ workload = {
         "dimension_relations": ["ix=2*ox+1*fx", "iy=2*oy+1*fy"],
         "loop_dim_size": {
             "B": 1,
-            "K": 128,
+            "K": 64,
             "C": 3,
             "OY": 112,
             "OX": 112,
