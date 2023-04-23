@@ -115,19 +115,19 @@ def get_memory_hierarchy(multiplier_array):
     th: to high = rd_out_to_high = 
     tl: to low = rd_out_to_low = 
     """
-    # Register file for input
-    memory_hierarchy_graph.add_memory(
-        memory_instance=rf_1B,
-        operands=("I1",),
-        port_alloc=({"fh": "w_port_1", "tl": "r_port_1", "fl": None, "th": None},),
-        served_dimensions={(0, 1)},
-    )
     # Register file for weight
     memory_hierarchy_graph.add_memory(
         memory_instance=rf_1B,
         operands=("I2",),
         port_alloc=({"fh": "w_port_1", "tl": "r_port_1", "fl": None, "th": None},),
         served_dimensions=set(),
+    )
+    # Register file for input
+    memory_hierarchy_graph.add_memory(
+        memory_instance=rf_1B,
+        operands=("I1",),
+        port_alloc=({"fh": "w_port_1", "tl": "r_port_1", "fl": None, "th": None},),
+        served_dimensions={(0, 1)},
     )
     # Register file for output
     memory_hierarchy_graph.add_memory(
