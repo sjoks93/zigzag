@@ -404,7 +404,7 @@ def get_cacti_cost(cacti_path, tech_node, mem_type, mem_size_in_byte, bw, hd_has
     Attention: for CACTI, the miminum mem_size=64B, minimum_rows=32
     '''
     import logging as _logging
-    _logging_level = logging.CRITICAL
+    _logging_level = _logging.CRITICAL
     _logging_format = '%(asctime)s - %(funcName)s +%(lineno)s - %(levelname)s - %(message)s'
     _logging.basicConfig(level=_logging_level, format=_logging_format)
 

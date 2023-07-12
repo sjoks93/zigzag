@@ -9,7 +9,6 @@ from zigzag.classes.hardware.architecture.core import Core
 
 
 def memory_hierarchy_dut(imc_array):
-    breakpoint()
     """Memory hierarchy variables"""
     """ size=#bit, bw=(read bw, write bw), cost=(read word energy, write work energy) """
     cell_group = MemoryInstance(
@@ -130,7 +129,7 @@ def memory_hierarchy_dut(imc_array):
     ####################################################################################################################
 
     memory_hierarchy_graph.add_memory(
-        memory_instance=dram_100MB_32_2r_2w,
+        memory_instance=dram_100MB_32_3r_3w,
         operands=("I1", "I2", "O"),
         port_alloc=(
             {"fh": "w_port_1", "tl": "r_port_1", "fl": None, "th": None},

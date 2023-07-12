@@ -6,19 +6,19 @@ from zigzag.classes.hardware.architecture.operational_array import MultiplierArr
 from zigzag.classes.hardware.architecture.memory_instance import MemoryInstance
 from zigzag.classes.hardware.architecture.accelerator import Accelerator
 from zigzag.classes.hardware.architecture.core import Core
+from zigzag.classes.hardware.architecture.imc_array import ImcArray
 
 
 def memory_hierarchy_dut(imc_array):
-    breakpoint()
     """Memory hierarchy variables"""
     """ size=#bit, bw=(read bw, write bw), cost=(read word energy, write work energy) """
     cell_group = MemoryInstance(
         name="cell_group",
-        size=imc_array.hd_param["weight_precision"]*imc_array.hd_param["group_depth"],
-        r_bw=imc_array.hd_param["weight_precision"],
-        w_bw=imc_array.hd_param["weight_precision"],
+        size=imc_array.unit.hd_param["weight_precision"]*imc_array.unit.hd_param["group_depth"],
+        r_bw=imc_array.unit.hd_param["weight_precision"],
+        w_bw=imc_array.unit.hd_param["weight_precision"],
         r_cost=0,
-        w_cost=imc_array.hd_param["w_energy_per_bit"] * 8, # unit: pJ/weight
+        w_cost=imc_array.unit.hd_param["w_energy_per_bit"] * 8, # unit: pJ/weight
         area=0, # this area is already included in imc_array
         r_port=0,
         w_port=0,
@@ -130,7 +130,7 @@ def memory_hierarchy_dut(imc_array):
     ####################################################################################################################
 
     memory_hierarchy_graph.add_memory(
-        memory_instance=dram_100MB_32_2r_2w,
+        memory_instance=dram_100MB_32_3r_3w,
         operands=("I1", "I2", "O"),
         port_alloc=(
             {"fh": "w_port_1", "tl": "r_port_1", "fl": None, "th": None},
@@ -178,11 +178,11 @@ def imc_array_dut():
         "D3": 1,    # nb_macros (fix meaning: nb_arrays)
     }  # {"D1": ("K", 4), "D2": ("C", 32),}
 
-    dimc_array = DimcArray(
+    imc_array = ImcArray(
         tech_param_28nm, hd_param, dimensions
     )
 
-    return dimc_array
+    return imc_array
 
 def cores_dut():
     imc_array1 = imc_array_dut()
@@ -196,3 +196,4 @@ def cores_dut():
 cores = cores_dut()
 acc_name = os.path.basename(__file__)[:-3]
 accelerator = Accelerator(acc_name, cores)
+

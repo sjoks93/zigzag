@@ -1,5 +1,8 @@
 import numpy as np
 import math
+from zigzag.classes.hardware.architecture.dimension import Dimension
+from typing import Dict
+from zigzag.classes.hardware.architecture.get_cacti_cost import get_cacti_cost
 
 ###############################################################################################################
 # README
@@ -105,8 +108,8 @@ class LogicUnit:
         """why 0? Compared to others, it's negligible"""
         return 0
 
-class ImcArray():
-    """definition of general function of IMC"""
+class Imc:
+    """definition of general initilization function for D/AIMC"""
     def __init__(self,tech_param:dict, hd_param:dict, dimensions:dict):
         """check input firstly"""
         required_hd_param = ["imc_type", "input_precision", "weight_precision", "input_bit_per_cycle", "group_depth", "w_energy_per_bit"]
@@ -145,15 +148,18 @@ class ImcArray():
 
     def get_cell_array_cost(self):
         """get the area, energy cost of a single cell array using CACTI"""
-        from get_cacti_cost import get_cacti_cost
         array_rows = self.dimensions["D2"] * self.hd_param["group_depth"]
         array_cols = self.dimensions["D1"] * self.hd_param["weight_precision"]
         cell_array_size = array_rows * array_cols / 8 # unit: byte
         imc_bw = self.dimensions["D1"] * self.hd_param["weight_precision"] # unit: bit
-        access_time, area, r_cost, w_cost = get_cacti_cost(cacti_path="../../cacti/cacti_master", tech_node=self.tech_param["tech_node"], mem_type="sram", mem_size_in_byte=cell_array_size, bw=imc_bw) # unit: ns, mm^2, nJ/access, nJ/access
+        if __name__ == "__main__":
+            cacti_path = "../../cacti/cacti_master"
+        else:
+            cacti_path = "zigzag/classes/cacti/cacti_master"
+        access_time, area, r_cost, w_cost = get_cacti_cost(cacti_path=cacti_path, tech_node=self.tech_param["tech_node"], mem_type="sram", mem_size_in_byte=cell_array_size, bw=imc_bw) # unit: ns, mm^2, nJ/access, nJ/access
         return access_time, area, r_cost, w_cost
 
-class DimcArray(ImcArray):
+class DimcArray(Imc):
     """definition of a DIMC array"""
     """
     constraint:
@@ -265,7 +271,7 @@ class DimcArray(ImcArray):
     def get_energy(self, layer, mapping):
         pass
 
-class AimcArray(ImcArray):
+class AimcArray(Imc):
     def __init__(self,tech_param:dict, hd_param:dict, dimensions:dict):
         super().__init__(tech_param, hd_param, dimensions)
 
@@ -384,6 +390,26 @@ class AimcArray(ImcArray):
         }
         return self.delay
 
+class ImcArray:
+    def __init__(self, tech_param: Dict[str, float], hd_param: dict, dimensions: Dict[str, int]):
+        """
+        This class defines the general IMC array (including AIMC and DIMC)
+        :param tech_param: definition of technology-related parameters
+        :param hd_param: hardware architecture parameters except dimensions
+        :param dimensions: dimensions definition
+        """
+        if hd_param["imc_type"] == "DIMC":
+            self.unit = DimcArray(tech_param, hd_param, dimensions)
+        elif hd_param["imc_type"] == "AIMC":
+            self.unit = AimcArray(tech_param, hd_param, dimensions)
+        self.total_area = self.unit.get_area()
+        base_dims = [
+            Dimension(idx, name, size)
+            for idx, (name, size) in enumerate(dimensions.items())
+        ]
+        self.dimensions = base_dims
+        self.dimension_sizes = [dim.size for dim in base_dims]
+        self.nb_dimensions = len(base_dims)
 
 if __name__ == "__main__":
 #
