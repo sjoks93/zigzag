@@ -264,38 +264,86 @@ class CostModelEvaluation:
         """
         JSON representation used for saving this object to a json file.
         """
-        return {
-            "outputs": {
-                "memory": {
-                    "utilization": self.mem_utili_shared
-                    if hasattr(self, "mem_utili_shared")
+        try:
+            if "imc_type" in self.accelerator.get_core(self.core_id).operational_array.unit.hd_param.keys(): # add MAC_energy_breakdown, tclk to the return dict
+                self.area_imc = self.accelerator.get_core(self.core_id).operational_array.total_area
+                self.area_imc_breakdown = self.accelerator.get_core(self.core_id).operational_array.area_breakdown
+                return {
+                    "outputs": {
+                        "memory": {
+                            "utilization": self.mem_utili_shared
+                            if hasattr(self, "mem_utili_shared")
+                            else None,
+                            "word_accesses": self.memory_word_access,
+                        },
+                        "energy": {
+                            "energy_total": self.energy_total,
+                            "operational_energy": self.MAC_energy,
+                            "operational_energy_breakdown": self.MAC_energy_breakdown,
+                            "memory_energy": self.mem_energy,
+                            "energy_breakdown_per_level": self.energy_breakdown,
+                            "energy_breakdown_per_level_per_operand": self.energy_breakdown_further,
+                        },
+                        "latency": {
+                            "data_onloading": self.latency_total1 - self.latency_total0,
+                            "computation": self.latency_total0,
+                            "data_offloading": self.latency_total2 - self.latency_total1,
+                        },
+                        "clock": {
+                            "tclk": self.tclk,
+                            "tclk_breakdown": self.tclk_breadown,
+                        },
+                        "area": {
+                            "area_imc": self.area_imc,
+                            "area_imc_breakdown": self.area_imc_breakdown,
+                        },
+                    },
+                    "inputs": {
+                        "accelerator": self.accelerator,
+                        "layer": self.layer,
+                        "spatial_mapping": self.spatial_mapping
+                        if hasattr(self, "spatial_mapping")
+                        else None,
+                        "temporal_mapping": self.temporal_mapping
+                        if hasattr(self, "temporal_mapping")
+                        else None,
+                    },
+                }
+            else:
+                raise Exception(f"[cost_model] imc_type is defined in the hd_param of the hardware template.")
+        except AttributeError:  # pure digital PE (AttributeError: "Multiplier" object has no attribute "hd_param")
+            return {
+                "outputs": {
+                    "memory": {
+                        "utilization": self.mem_utili_shared
+                        if hasattr(self, "mem_utili_shared")
+                        else None,
+                        "word_accesses": self.memory_word_access,
+                    },
+                    "energy": {
+                        "energy_total": self.energy_total,
+                        "operational_energy": self.MAC_energy,
+                        "memory_energy": self.mem_energy,
+                        "energy_breakdown_per_level": self.energy_breakdown,
+                        "energy_breakdown_per_level_per_operand": self.energy_breakdown_further,
+                    },
+                    "latency": {
+                        "data_onloading": self.latency_total1 - self.latency_total0,
+                        "computation": self.latency_total0,
+                        "data_offloading": self.latency_total2 - self.latency_total1,
+                    },
+                },
+                "inputs": {
+                    "accelerator": self.accelerator,
+                    "layer": self.layer,
+                    "spatial_mapping": self.spatial_mapping
+                    if hasattr(self, "spatial_mapping")
                     else None,
-                    "word_accesses": self.memory_word_access,
+                    "temporal_mapping": self.temporal_mapping
+                    if hasattr(self, "temporal_mapping")
+                    else None,
                 },
-                "energy": {
-                    "energy_total": self.energy_total,
-                    "operational_energy": self.MAC_energy,
-                    "memory_energy": self.mem_energy,
-                    "energy_breakdown_per_level": self.energy_breakdown,
-                    "energy_breakdown_per_level_per_operand": self.energy_breakdown_further,
-                },
-                "latency": {
-                    "data_onloading": self.latency_total1 - self.latency_total0,
-                    "computation": self.latency_total0,
-                    "data_offloading": self.latency_total2 - self.latency_total1,
-                },
-            },
-            "inputs": {
-                "accelerator": self.accelerator,
-                "layer": self.layer,
-                "spatial_mapping": self.spatial_mapping
-                if hasattr(self, "spatial_mapping")
-                else None,
-                "temporal_mapping": self.temporal_mapping
-                if hasattr(self, "temporal_mapping")
-                else None,
-            },
-        }
+            }
 
     def __simplejsonrepr__(self):
         """
@@ -578,8 +626,15 @@ class CostModelEvaluation:
     def calc_MAC_energy_cost(self):
         """Calculate the dynamic MAC energy"""
         core = self.accelerator.get_core(self.core_id)
-        single_MAC_energy = core.operational_array.unit.cost
-        self.MAC_energy = single_MAC_energy * self.layer.total_MAC_count
+        try: # IMC (In-Memory Computing macro) PE
+            if "imc_type" in core.operational_array.unit.hd_param.keys():
+                self.MAC_energy_breakdown = core.operational_array.unit.get_energy(self.layer, self.mapping)
+                self.MAC_energy = sum([v for v in self.MAC_energy_breakdown.values()])
+            else:
+                raise Exception(f"[cost_model] imc_type is defined in the hd_param of the hardware template.")
+        except AttributeError: # pure digital PE (AttributeError: "Multiplier" object has no attribute "hd_param")
+            single_MAC_energy = core.operational_array.unit.cost
+            self.MAC_energy = single_MAC_energy * self.layer.total_MAC_count
 
     def calc_memory_energy_cost(self):
         """
@@ -671,9 +726,95 @@ class CostModelEvaluation:
         """
         self.calc_double_buffer_flag()
         self.calc_allowed_and_real_data_transfer_cycle_per_DTL()
-        self.combine_data_transfer_rate_per_physical_port()
+
+        try: # IMC (In-Memory Computing macro) PE
+            core = self.accelerator.get_core(self.core_id)
+            if "imc_type" in core.operational_array.unit.hd_param.keys():
+                self.calc_imc_ss_comb()
+            else:
+                raise Exception(f"[cost_model] imc_type is defined in the hd_param of the hardware template.")
+        except AttributeError: # pure digital PE (AttributeError: "Multiplier" object has no attribute "hd_param")
+            self.combine_data_transfer_rate_per_physical_port()
+
         self.calc_data_loading_offloading_latency()
         self.calc_overall_latency()
+
+    def calc_imc_ss_comb(self):
+        """
+        Calculate the stalling cycles for IMC
+        Note: this calculation is incorrect when:
+        (1) there are more than two mem levels for storing weight (top dram, others mems and IMC array) AND extra stalling is introduced by the intermediate mem levels (e.g. insufficient bw).
+        (2) mem rd_bw of the mem level above IMC array is smaller than wr_bw of the IMC array.
+        """
+        """ Step 1: collect port activity per memory instance per physical memory port """
+        port_activity_collect = []
+        for mem_instance in self.mem_instance_list:
+            port_activity_single = {}
+            port_list = mem_instance.port_list
+            for port in port_list:
+                port_activity_single[str(port)] = []
+                for mem_op, mem_lv, mov_dir in port.served_op_lv_dir:
+                    try:
+                        layer_op = self.mem_op_to_layer_op[mem_op]
+                    except:  # mem op to layer might not have this mem op (e.g. pooling layer)
+                        continue
+                    period_count = getattr(
+                        self.mapping_int.unit_mem_data_movement[layer_op][
+                            mem_lv
+                        ].data_trans_period_count,
+                        mov_dir,
+                    )
+                    if period_count == 0:
+                        """skip the inactive data movement activities because they won't impact SS"""
+                        continue
+                    period = getattr(
+                        self.mapping_int.unit_mem_data_movement[layer_op][
+                            mem_lv
+                        ].data_trans_period,
+                        mov_dir,
+                    )
+                    real_cycle = getattr(
+                        self.real_data_trans_cycle[layer_op][mem_lv], mov_dir
+                    )
+                    allowed_cycle = getattr(
+                        self.allowed_mem_updat_cycle[layer_op][mem_lv], mov_dir
+                    )
+                    port_activity = PortActivity(
+                        real_cycle,
+                        allowed_cycle,
+                        period,
+                        period_count,
+                        layer_op,
+                        mem_lv,
+                        mov_dir,
+                    )
+                    port_activity_single[str(port)].append(port_activity)
+            port_activity_collect.append(port_activity_single)
+        self.port_activity_collect = port_activity_collect
+        """ Step 2: calculate the number of weight loading cycles """
+        const_operand = "W" if "W" in self.mapping.spatial_mapping.mapping_dict_origin.keys() else "B"  # detect the operand name used in a layer
+        spatial_mapping_in_macro = [v for k, v in self.layer.user_spatial_mapping.items() if k in ["D1", "D2"]]  # spatial mapping on a single macro
+        Cu = np.prod([x[1] for x in spatial_mapping_in_macro if x[0] == "C"])
+        FXu = np.prod([x[1] for x in spatial_mapping_in_macro if x[0] == "FX"])
+        FYu = np.prod([x[1] for x in spatial_mapping_in_macro if x[0] == "FY"])
+        OXu = np.prod([x[1] for x in spatial_mapping_in_macro if x[0] == "OX"])
+        mapped_group_depth = 1 # initialization
+        tm_loop_in_group_depth = self.mapping.temporal_mapping.mapping_dic_origin[const_operand][0] # tm on lowest weight mem level
+        if len(self.mapping.temporal_mapping.mapping_dic_origin[const_operand]) == 1: # no weight preloading if there is only one mem level for weight
+            weight_loading = False
+        else: # stalling cycles for weight loading exists when loading weight from top mem and double buffering is not supported
+            weight_loading = True
+        for k,v in tm_loop_in_group_depth:
+            if k in ["FX", "FY", "K", "C", "G", "B"]: # weight relavant loop
+                mapped_group_depth *= v
+        weight_reload_periods = port_activity_collect[0]['rw_port_1'][0].period_count
+
+        mapped_rows_total = ceil( Cu * (FYu * (OXu + FXu - 1)) )  # mapped rows in total (mapped D2 in total)
+        weight_loading_cycles = weight_reload_periods * mapped_rows_total * mapped_group_depth * weight_loading
+        self.SS_comb = weight_loading_cycles
+        """ Step 3: fetch the tclk information """
+        self.tclk = self.accelerator.get_core(self.core_id).operational_array.tclk
+        self.tclk_breadown = self.accelerator.get_core(self.core_id).operational_array.tclk_breakdown
 
     def calc_double_buffer_flag(self):
         """This function checks the double-buffer possibility for each operand at each memory level

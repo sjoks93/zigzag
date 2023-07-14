@@ -29,7 +29,7 @@ pkl_name = f'{experiment_id}-saved_list_of_cmes'
 mainstage = MainStage([
     WorkloadParserStage,
     AcceleratorParserStage,
-    SimpleSaveStage,
+    #SimpleSaveStage,
     PickleSaveStage,
     SumStage,
     CompleteSaveStage,

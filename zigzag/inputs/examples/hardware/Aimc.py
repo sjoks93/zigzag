@@ -6,6 +6,7 @@ from zigzag.classes.hardware.architecture.operational_array import MultiplierArr
 from zigzag.classes.hardware.architecture.memory_instance import MemoryInstance
 from zigzag.classes.hardware.architecture.accelerator import Accelerator
 from zigzag.classes.hardware.architecture.core import Core
+from zigzag.classes.hardware.architecture.imc_array import ImcArray
 
 
 def memory_hierarchy_dut(imc_array):
@@ -13,11 +14,11 @@ def memory_hierarchy_dut(imc_array):
     """ size=#bit, bw=(read bw, write bw), cost=(read word energy, write work energy) """
     cell_group = MemoryInstance(
         name="cell_group",
-        size=imc_array.hd_param["weight_precision"]*imc_array.hd_param["group_depth"],
-        r_bw=imc_array.hd_param["weight_precision"],
-        w_bw=imc_array.hd_param["weight_precision"],
+        size=imc_array.unit.hd_param["weight_precision"]*imc_array.unit.hd_param["group_depth"],
+        r_bw=imc_array.unit.hd_param["weight_precision"],
+        w_bw=imc_array.unit.hd_param["weight_precision"],
         r_cost=0,
-        w_cost=imc_array.hd_param["w_energy_per_bit"] * 8, # unit: pJ/weight
+        w_cost=imc_array.unit.hd_param["w_energy_per_bit"] * 8, # unit: pJ/weight
         area=0, # this area is already included in imc_array
         r_port=0,
         w_port=0,
@@ -180,7 +181,7 @@ def imc_array_dut():
     }  # {"D1": ("K", 4), "D2": ("C", 32),}
     hd_param["adc_resolution"] = hd_param["input_bit_per_cycle"] + 0.5 * int(math.log2(dimensions["D2"]))
 
-    aimc_array = AimcArray(
+    aimc_array = ImcArray(
         tech_param_28nm, hd_param, dimensions
     )
 
