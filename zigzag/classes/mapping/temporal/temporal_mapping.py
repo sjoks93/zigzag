@@ -91,6 +91,7 @@ class TemporalMapping:
                                     mapping_current[operand][level]
                                 )
                                 break
+            #print(mapping_st)
             if mapping_st != mapping_previous:
                 mapping_previous = pickle_deepcopy(mapping_st)
                 mapping_current = pickle_deepcopy(mapping_st)
@@ -132,6 +133,7 @@ class TemporalMapping:
 
         self.cycle_cabl_level = cycle_cabl_level
         self.total_cycle = total_cycle[0]
+
 
     def calc_top_r_and_ir_loop(self):
         """

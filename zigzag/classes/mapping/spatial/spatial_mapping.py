@@ -13,16 +13,15 @@ class SpatialMapping:
     """
 
     def __init__(self, spatial_mapping_dict: Dict, layer_node: "LayerNode"):
+        
         self.mapping_dict_origin = spatial_mapping_dict
         self.mapping_dict_reform = mapping_assist_funcs.decouple_pr_loop(
             spatial_mapping_dict, layer_node
         )
         self.layer_node = layer_node
         self.operand_list = layer_node.operand_list
-
         """ Extract architecture level count for each operand from spatial mapping definition, starting from MAC level """
         self.arch_level = {op: len(smap) for (op, smap) in spatial_mapping_dict.items()}
-
         """ Calculate unrolled loop size for different loop types (r/ir/total) """
         self.calc_unroll_size()
 
@@ -86,7 +85,6 @@ class SpatialMapping:
                     else:
                         unroll_size_ir[operand][level] *= loop_dim
                     unroll_size_total[operand][level] *= loop_dim
-
         self.unroll_size_r = unroll_size_r
         self.unroll_size_ir = unroll_size_ir
         self.unroll_size_total = unroll_size_total
@@ -154,6 +152,7 @@ class SpatialMapping:
 
         self.data_serve_scope = data_serve_scope
 
+
     def calc_mem_bw_boost_factor(self):
         """
         Calculate memory bandwidth incremental factor between architectural levels.
@@ -170,6 +169,7 @@ class SpatialMapping:
         }
 
         self.mem_bw_boost = mem_bw_boost
+
 
     def save_spatial_loop_dim_size(self):
         """

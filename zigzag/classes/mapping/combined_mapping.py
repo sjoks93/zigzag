@@ -1,5 +1,6 @@
 from typing import Dict
 from math import prod
+import copy
 from zigzag.classes.workload.layer_node import LayerNode
 from zigzag.classes.mapping.spatial.spatial_mapping import SpatialMapping
 from zigzag.classes.mapping.temporal.temporal_mapping import TemporalMapping
@@ -225,10 +226,12 @@ class Mapping:
         """ Initialize unit_mem_data_movement, which collects all the important data movement info 
         related to each unit memory, such as data access count, data precision, required memory BW to 
         prevent stall, data transfer rate, etc. """
+
         self.unit_mem_data_movement = {
             op: [[] for _ in range(self.mem_level[op])] for op in self.operand_list
         }
-
+        # if(self.layer_node.state):
+        #     self.unit_mem_data_movement["S"] = [[] for _ in range(self.mem_level["O"])]
         """ Combine spatial and temporal mapping dictionary into "joint_mapping_dict" in order to 
         enable decoupling pr loops into r and ir loops in one go """
         self.combine_spatial_temporal_mapping_dict()
@@ -351,20 +354,27 @@ class Mapping:
         """
         input_operands = self.layer_node.input_operands
         output_operand = self.layer_node.output_operand
-        data_precision_dict = {
-            op: [self.layer_node.operand_precision[op]] * (self.mem_level[op] + 1)
-            for op in input_operands
-        }
-        data_precision_dict[output_operand] = []
-        for i in range(self.mem_level[output_operand] + 1):
-            if self.psum_flag[i]:
-                data_precision_dict[output_operand].append(
-                    self.layer_node.operand_precision[output_operand]
-                )
-            else:
-                data_precision_dict[output_operand].append(
-                    self.layer_node.operand_precision[output_operand + "_final"]
-                )
+        operands = self.layer_node.operand_list
+        if(self.layer_node.state):
+            data_precision_dict = {
+                op: [self.layer_node.operand_precision[op]] * (self.mem_level[op] + 1)
+                for op in operands
+            }
+        else:
+            data_precision_dict = {
+                op: [self.layer_node.operand_precision[op]] * (self.mem_level[op] + 1)
+                for op in input_operands
+            }
+            data_precision_dict[output_operand] = []
+            for i in range(self.mem_level[output_operand] + 1):
+                if i == 0 or self.psum_flag[i-1]:
+                    data_precision_dict[output_operand].append(
+                        self.layer_node.operand_precision[output_operand]
+                    )
+                else:
+                    data_precision_dict[output_operand].append(
+                        self.layer_node.operand_precision[output_operand + "_final"]
+                    )
         self.data_precision_dict = data_precision_dict
 
     def gen_r_ir_loop_list(self):
@@ -479,7 +489,7 @@ class Mapping:
         self.r_loop_size_cabl2 = r_loop_size_cabl2
         self.ir_loop_size_cabl = ir_loop_size_cabl
         self.ir_loop_size_cabl2 = ir_loop_size_cabl2
-        self.O_ir_loop_size_caal = O_ir_loop_size_caal
+        self.O_ir_loop_size_caal = O_ir_loop_size_caal  
 
     def calc_data_size(self):
         """
@@ -495,7 +505,6 @@ class Mapping:
             ]
             for op in self.operand_list
         }
-
         data_bit_per_level_unrolled = {
             op: [
                 round(self.r_loop_size_cabl2[op][lv]) * self.data_precision_dict[op][lv]
@@ -529,7 +538,6 @@ class Mapping:
         self.data_bit_per_level_unrolled = data_bit_per_level_unrolled
         self.data_elem_per_level = data_elem_per_level
         self.data_bit_per_level = data_bit_per_level
-
     def calc_effective_data_size(self):
         """
         Calculate the effective data size for getting the allowed memory updating window in latency calculation.
@@ -556,6 +564,7 @@ class Mapping:
         }
         self.effective_data_elem = effective_data_elem
         self.effective_data_bit = effective_data_bit
+
 
     def calc_data_access(self):
         """
@@ -635,15 +644,16 @@ class Mapping:
                 self.unit_mem_data_movement[operand][mem_level] = unit_mem_data_movement
 
         """ For output operand """
+
         output_operand = self.layer_node.output_operand
+        output_size = self.layer_node.operand_size_elem["O"]
         for mem_level in range(self.mem_level[output_operand]):
             unit_mem_data_movement = DataMovePattern(output_operand, mem_level)
-
             """ Note that the index for data_access_raw is arch_level, which is one level more than mem_level. 
             the first arch_level means the operational array level (e.g. MAC array level); 
             the first mem_level means the innermost memory level (e.g. register file level)."""
-
             """ data access count """
+
             wr_in_by_low = data_access_raw[output_operand][mem_level]
             rd_out_to_low = self.layer_node.operand_size_elem[output_operand] * (
                 self.O_ir_loop_size_caal[mem_level + 1] - 1
@@ -653,24 +663,24 @@ class Mapping:
             wr_in_by_high = self.layer_node.operand_size_elem[output_operand] * (
                 self.O_ir_loop_size_caal[mem_level + 2] - 1
             )
-
-            unit_mem_data_movement.set_data_elem_move_count(
-                rd_out_to_low, wr_in_by_low, rd_out_to_high, wr_in_by_high
-            )
-
             """ data precision """
-            if rd_out_to_low != 0:
+
+            if rd_out_to_low != 0 or self.layer_node.state:
                 """partial output data precision"""
+                if(rd_out_to_low == 0 and mem_level != 0):
+                    rd_out_to_low = output_size
                 wr_in_by_low_pre = self.layer_node.operand_precision[output_operand]
                 rd_out_to_low_pre = self.layer_node.operand_precision[output_operand]
             else:
-                """final output data precision"""
+                """final output data precision"""                 
                 wr_in_by_low_pre = self.layer_node.operand_precision[
                     output_operand + "_final"
                 ]
                 rd_out_to_low_pre = 0
-            if wr_in_by_high != 0:
+            if wr_in_by_high != 0 or self.layer_node.state:
                 """partial output data precision"""
+                if(wr_in_by_high == 0 and mem_level != self.mem_level[output_operand] - 1):
+                    wr_in_by_high = output_size
                 wr_in_by_high_pre = self.layer_node.operand_precision[output_operand]
                 rd_out_to_high_pre = self.layer_node.operand_precision[output_operand]
             else:
@@ -679,17 +689,46 @@ class Mapping:
                 rd_out_to_high_pre = self.layer_node.operand_precision[
                     output_operand + "_final"
                 ]
+            if(mem_level == self.mem_level[output_operand] - 1):
+                rd_out_to_high = 0
+                wr_in_by_high = 0
+            if(self.layer_node.state):
+                unit_mem_data_movement_S = DataMovePattern(self.layer_node.state_operand, mem_level)
+                unit_mem_data_movement_S.set_data_elem_move_count(
+                    rd_out_to_low, wr_in_by_low, rd_out_to_high, wr_in_by_high
+                )
 
+                prec_state = self.layer_node.operand_precision[self.layer_node.state_operand]
+                unit_mem_data_movement_S.set_data_precision(
+                    prec_state,
+                    prec_state,
+                    prec_state,
+                    prec_state,
+                )    
+                self.unit_mem_data_movement[self.layer_node.state_operand][mem_level] = unit_mem_data_movement_S
+                if(mem_level != self.mem_level[output_operand] - 1):
+                    rd_out_to_high = output_size
+                else:
+                    rd_out_to_high = 0
+                wr_in_by_low = output_size
+                rd_out_to_low = 0
+                wr_in_by_high = 0
+
+            unit_mem_data_movement.set_data_elem_move_count(
+                rd_out_to_low, wr_in_by_low, rd_out_to_high, wr_in_by_high
+            )
             unit_mem_data_movement.set_data_precision(
                 rd_out_to_low_pre,
                 wr_in_by_low_pre,
                 rd_out_to_high_pre,
                 wr_in_by_high_pre,
-            )
+            )    
 
             self.unit_mem_data_movement[output_operand][
                 mem_level
             ] = unit_mem_data_movement
+
+        
 
     def calc_req_mem_bw_and_data_transfer_rate(self):
         """
@@ -707,11 +746,20 @@ class Mapping:
             cycle_each_level[self.layer_node.output_operand] = [
                 1
             ] + self.temporal_mapping.cycle_cabl_level[self.layer_node.output_operand]
+            if self.layer_node.state:
+                cycle_each_level[self.layer_node.state_operand] = [
+                    1
+                ] + self.temporal_mapping.cycle_cabl_level[self.layer_node.state_operand]
+
         else:
             cycle_each_level = {
                 op: [1] + self.temporal_mapping.cycle_cabl_level[op]
                 for op in self.operand_list
             }
+
+        # if self.layer_node.state:
+        #     state_operand = "S"
+        #     cycle_each_level[state_operand] = cycle_each_
         data_each_level_unrolled = self.data_elem_per_level_unrolled
 
         """ Add the mem BW boost factor 1 on the top (the memory BW boost factor from outside to top memory) 
@@ -719,12 +767,14 @@ class Mapping:
         mem_bw_boost_factor = {
             op: self.spatial_mapping.mem_bw_boost[op] + [1] for op in self.operand_list
         }
-
         """ req_mem_bw_raw doesn't distinguish read and write, doesn't distinguish input operands from output operand """
         """ "_L/_H" indicates for each data transfer link (DTL), the lower/higher memory level's required BW, 
         e.g. for the DTL of Global Buffer (Weight) talking to spatially unrolled Weight Reg File, 
         each Weight Reg File's required write BW is indicated by "_L", 
         while Global Buffer (Weight)'s required read BW is indicate by "_H" """
+
+
+
         req_mem_bw_L_raw = {
             op: [
                 data_each_level_unrolled[op][lv] / cycle_each_level[op][lv]
@@ -743,7 +793,6 @@ class Mapping:
         """
         Calculates the average required memory bw.
         """
-
         """ Distinguish read and write, unify input operands and output operand """
         """ For input operands """
         for operand in self.layer_node.input_operands:
@@ -828,7 +877,8 @@ class Mapping:
             )
             rd_out_to_high_da = data_each_level_unrolled[output_operand][mem_level + 1]
 
-            if self.psum_flag[mem_level]:
+
+            if self.psum_flag[mem_level] and (not self.layer_node.state):
                 rd_out_to_low_bw = wr_in_by_low_bw
                 rd_out_to_low_pd = wr_in_by_low_pd
                 rd_out_to_low_pc = wr_in_by_low_pc
@@ -839,7 +889,7 @@ class Mapping:
                 rd_out_to_low_pc = 0
                 rd_out_to_low_da = 0
 
-            if self.psum_flag[mem_level + 1]:
+            if self.psum_flag[mem_level + 1] and (not self.layer_node.state):
                 wr_in_by_high_bw = rd_out_to_high_bw
                 wr_in_by_high_pd = rd_out_to_high_pd
                 wr_in_by_high_pc = rd_out_to_high_pc
@@ -848,8 +898,7 @@ class Mapping:
                 wr_in_by_high_bw = 0
                 wr_in_by_high_pd = 0
                 wr_in_by_high_pc = 0
-                wr_in_by_high_da = 0
-
+                wr_in_by_high_da = 0                
             """ average required memory BW """
             self.unit_mem_data_movement[output_operand][mem_level].set_req_mem_bw_aver(
                 rd_out_to_low_bw, wr_in_by_low_bw, rd_out_to_high_bw, wr_in_by_high_bw
@@ -873,10 +922,39 @@ class Mapping:
                 rd_out_to_low_da, wr_in_by_low_da, rd_out_to_high_da, wr_in_by_high_da
             )
 
+            if self.layer_node.state:
+                state_operand = self.layer_node.state_operand
+                self.unit_mem_data_movement[state_operand][mem_level].set_req_mem_bw_aver(
+                    wr_in_by_low_bw, wr_in_by_low_bw, rd_out_to_high_bw, rd_out_to_high_bw
+                )
+                """ data transfer period """
+                self.unit_mem_data_movement[state_operand][
+                    mem_level
+                ].set_data_trans_period(
+                    wr_in_by_low_pd, wr_in_by_low_pd, rd_out_to_high_pd, rd_out_to_high_pd
+                )
+                """ data transfer period count """
+                self.unit_mem_data_movement[state_operand][
+                    mem_level
+                ].set_data_trans_period_count(
+                    wr_in_by_low_pc, wr_in_by_low_pc, rd_out_to_high_pc, rd_out_to_high_pc
+                )
+                """ per-period data transfer amount """
+                self.unit_mem_data_movement[state_operand][
+                    mem_level
+                ].set_data_trans_amount_per_period(
+                    wr_in_by_low_da, wr_in_by_low_da, rd_out_to_high_da, rd_out_to_high_da
+                )                
+
+
+
         """
         Calculate the instant memory updating behavior.
         """
-        top_ir_loop_size = self.temporal_mapping.top_ir_loop_size
+        top_ir_loop_size = copy.deepcopy(self.temporal_mapping.top_ir_loop_size)
+        if(self.layer_node.state):
+            for i, val in enumerate(top_ir_loop_size[output_operand]):
+                top_ir_loop_size[output_operand][i] = 1
         for operand in self.operand_list:
             for level, data_movement_item in enumerate(
                 self.unit_mem_data_movement[operand]
@@ -925,6 +1003,8 @@ class Mapping:
                     rd_out_to_high_wd,
                     wr_in_by_high_wd,
                 )
+
+         
 
     def disable_data_traffic_external(self):
         """

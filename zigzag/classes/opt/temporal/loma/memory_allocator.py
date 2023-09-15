@@ -50,14 +50,21 @@ class MemoryAllocator:
         self.mem_to_layer_op = {
             mem_op: layer_op for (layer_op, mem_op) in self.layer_to_mem_op.items()
         }
+
         # Bit precision for the different mem ops
-        self.precision = {
-            mem_op: self.layer.operand_precision[layer_op]
-            for (layer_op, mem_op) in self.layer_to_mem_op.items()
-        }
-        self.precision["O_final"] = self.layer.operand_precision.get(
-            "O_final", self.precision["O"]
-        )  # Final output precision
+        if(self.layer.state):
+            self.precision = {
+                mem_op: self.layer.operand_precision[layer_op]
+                for (layer_op, mem_op) in self.layer_to_mem_op.items()
+            }
+        else:
+            self.precision = {
+                mem_op: self.layer.operand_precision[layer_op]
+                for (layer_op, mem_op) in self.layer_to_mem_op.items()
+            }
+            self.precision[self.layer.output_operand + "_final"] = self.layer.operand_precision.get(
+                self.layer.output_operand + "_final", self.precision["O"]
+            )  # Final output precision
         # Initialize the unallocated loops with the ordering for each operand
         self.unallocated = {}
         for mem_op in self.mem_ops:
@@ -109,7 +116,6 @@ class MemoryAllocator:
         # After all the nodes have been allocated, we can creat the TemporalMapping
         # object from the dictionary we have built
         temporal_mapping = TemporalMapping(self.temporal_mapping_dict, self.layer)
-
         return temporal_mapping
 
     def allocate_node(self, node: MemoryLevel, top_levels: List[MemoryLevel]):
@@ -132,12 +138,13 @@ class MemoryAllocator:
         for mem_op in mem_ops:
             sizes = self.calc_size_slices(mem_op, mem_capacity)
             all_sizes[mem_op] = sizes
-
+        #print(all_sizes)
         # Now that we have this for all the mem_ops, call function that finds the best
         # combination of loops to minimize the number of accesses to the level above
         best_loop_idxs = self.find_best_loop_combination(
             mem_ops, all_sizes, node, top_levels
         )
+
 
         for (best_loop_idx, mem_op) in zip(best_loop_idxs, mem_ops):
             # Now that we have the combination of loop_idx for each mem_op, add them
@@ -152,7 +159,6 @@ class MemoryAllocator:
             self.temporal_mapping_dict[layer_op].append(
                 [(loop.dimension, loop.size) for loop in loops_to_allocate]
             )
-
             # This memory node that stores one or more mem_ops might be
             # spatially unrolled, add these spatially unrolled loops to
             # the list of allocated loops now, so that the next memory nodes
@@ -165,7 +171,6 @@ class MemoryAllocator:
             for (loop_dim, loop_size) in spatial_loops:
                 spatial_loop = Loop(dimension=loop_dim, size=loop_size, type="spatial")
                 self.allocated[mem_op].append(spatial_loop)
-
             # Check if this node (i.e. MemoryLevel) is the highest level of memory hierarchy.
             # If this is the case and we haven't allocated all loops, raise an exception.
             if (
@@ -177,6 +182,7 @@ class MemoryAllocator:
 
             # Increment the mem_level we are currently at for this layer_op by 1
             self.mem_level[layer_op] += 1
+
 
     def calc_size_slices(self, mem_op: str, mem_capacity: int):
         """
@@ -233,16 +239,16 @@ class MemoryAllocator:
         # For output it can be either the partial sum precision, or the final sum precision.
         # This depends on if all the irrelevant loops were allocated in a previous MemoryLevel.
         # Which in turn means all remaining unallocated loops for this MemoryLevel must not contain any ir loops.
-        if mem_op == "O":
+        if self.layer.state is None and self.mem_to_layer_op[mem_op] == self.layer.output_operand:
             ir_dims = op_dimensions["ir"]  # Irrelevant dimensions
             unallocated_dims = [
                 unallocated_loop.dimension for unallocated_loop in all_unallocated_loops
             ]
             # If there is still an irrelevant unallocated loop dimension, pick the full precision
             if any([dim in ir_dims for dim in unallocated_dims]):
-                precision = self.precision["O"]
+                precision = self.precision[self.layer.output_operand]
             else:
-                precision = self.precision["O_final"]
+                precision = self.precision[self.layer.output_operand+"_final"]
         else:
             precision = self.precision[mem_op]
 

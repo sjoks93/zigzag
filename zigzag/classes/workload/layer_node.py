@@ -80,6 +80,8 @@ class LayerNode:
         input_operand_source: Dict[str, list] = layer_attrs.get(
             "operand_source", dict()
         )
+    
+        state: bool = layer_attrs.get("state", False)
         # Save the padding for different tensor dimensions
         padding: Dict[str, tuple] = layer_attrs.get(
             "padding", {}
@@ -101,6 +103,12 @@ class LayerNode:
         self.operand_source_dimension_mapping = operand_source_dimension_mapping
         self.constant_operands = constant_operands
         self.padding = padding
+        self.state = state
+
+        if(state):
+            operand_state: Dict[str, list] = layer_attrs.get("operand_state", dict())       
+        else:
+            operand_state = None
 
         """ Step1: extract partially-relevant data dimension and its relation to loop dimensions. """
         pr_loop, pr_loop_list, pr_scaling_factors = self.build_pr_funcs()
@@ -119,12 +127,23 @@ class LayerNode:
             operand_dimensionality_order,
         ) = self.extract_r_ir_loop_info(equation, loop_dim_size, pr_loop, pr_loop_list)
         self.operand_loop_dim = operand_loop_dim
-        self.operand_loop_dim_reform = operand_loop_dim_reform
+        self.operand_loop_dim_reform = operand_loop_dim_reform       
         self.output_operand = operand_list[0]
         self.input_operands = operand_list[1:]
         self.operand_list = operand_list
         self.input_operand_source = input_operand_source
         self.operand_dimensionality_order = operand_dimensionality_order
+        self.operand_state = operand_state
+        #print(state_operand_source.keys().)
+        if(self.state):
+            state_operand, _ = list(operand_state.items())[0]
+            self.operand_list.append(state_operand)
+            self.state_operand = state_operand
+            self.operand_loop_dim[self.state_operand] = self.operand_loop_dim[self.output_operand]
+            self.operand_loop_dim_reform[self.state_operand] = self.operand_loop_dim_reform[self.output_operand]
+            self.operand_dimensionality_order[self.state_operand] = self.operand_dimensionality_order[self.output_operand]
+        else:
+            self.state_operand = None
 
         # Save the variable (non-constant) input operands
         self.variable_input_operands: list = [
@@ -134,7 +153,7 @@ class LayerNode:
         self.operand_tensor_reshape: Dict[str, list] = layer_attrs.get(
             "operand_tensor_reshape", {op: [] for op in self.operand_list}
         )
-
+        #print(self.operand_tensor_reshape)
         """ Step3: extract layer info, e.g. total operand size, total operand data reuse, total MAC operation, etc. """
         self.extract_layer_info()
 
@@ -400,14 +419,13 @@ class LayerNode:
                     pr_loop
                 ]
                 operand_size_elem[operand] *= multiply_factor
-        self.operand_size_elem = operand_size_elem
 
+        self.operand_size_elem = operand_size_elem
         """ each operand's size (Unit: bit) """
         operand_size_bit: Dict[str, int] = {}
         for operand, size_in_elem in operand_size_elem.items():
             operand_size_bit[operand] = size_in_elem * self.operand_precision[operand]
         self.operand_size_bit = operand_size_bit
-
         """ each operand's total data reuse factor, which is total MAC Op/total operand size (in element), 
         i.e. each data element can be used to support how many MAC operation. """
         operand_data_reuse: Dict[str, float] = {}
@@ -438,6 +456,7 @@ class LayerNode:
         """
         if layer_op not in self.source_storage_level:
             return None
+        #print(self.source_storage_level[layer_op])
         return self.source_storage_level[layer_op]
 
 

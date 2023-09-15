@@ -33,7 +33,6 @@ def decouple_pr_loop(mapping_dict: Dict, layer_node: "LayerNode"):
     This function decouples the pr loops into data size (r loops) and data reuse (ir loops).
     It also provides a transferred mapping dictionary in which the pr loops are replaced by r and ir loops.
     """
-
     operand_loop_dim = {
         op: layer_node.operand_loop_dim[op] for op in mapping_dict.keys()
     }
@@ -147,7 +146,6 @@ def decouple_pr_loop(mapping_dict: Dict, layer_node: "LayerNode"):
             pr_operand_loop_LUT[operand],
             r_ir_operand_loop_LUT[operand],
         )
-
     # return mapping_dict_reform, cabl_pr_data_size, cabl_pr_data_reuse, per_pr_data_size, per_pr_data_reuse
     return mapping_dict_reform
 
@@ -198,7 +196,6 @@ def replace_pr_loop_in_mapping(
                     """ update the pr loop index """
                     cl_pr_lp_idx_local[pr_data_dim] += 1
                     cl_pr_lp_idx_global += 1
-
     return mapping_new
 
 

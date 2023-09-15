@@ -120,6 +120,7 @@ class Core:
         for mem_lv in self.mem_hierarchy_dict.values():
             for mem in mem_lv:
                 operand_mem_share = mem.mem_level_of_operands
+
                 if (
                     len(operand_mem_share) > 1
                     and operand_mem_share not in memory_sharing_list

@@ -10,9 +10,10 @@ from zigzag.classes.hardware.architecture.operational_array import OperationalAr
 class UserSpatialMappingGenerator:
     """Class that generates valid user-format spatial mappings."""
 
-    def __init__(self, layer, accelerator) -> None:
+    def __init__(self, layer, accelerator, defined_mapping = None) -> None:
         self.layer = layer
         self.accelerator = accelerator
+        self.defined_mapping = defined_mapping
 
     def run(self):
         return self.generate_user_spatial_mappings()
@@ -37,12 +38,17 @@ class UserSpatialMappingGenerator:
         core_id = self.layer.core_allocation
         core: Core = self.accelerator.get_core(core_id=core_id)
         operational_array: OperationalArray = core.operational_array
-        oa_dims = operational_array.dimensions
+        oa_dims = operational_array.dimensions.copy()
         memory_hierarchy: MemoryHierarchy = core.memory_hierarchy
         innermost_levels = memory_hierarchy.get_inner_memories()
+        defined_mapping = self.defined_mapping
 
         # For every operational array dimension, we initialize it by maximally unrolling all layer dimensions.
         # Later these will be restricted if the memory structure doesn't allow for this unrolling
+        if(defined_mapping is not None):
+            for oa_dim in operational_array.dimensions:
+                if(defined_mapping.get(oa_dim.name) is not None):
+                    oa_dims.remove(oa_dim)
         oa_dim_unrolling = {
             oa_dim: {
                 layer_dim: int(min(layer_size, oa_dim.size))
@@ -127,6 +133,7 @@ class UserSpatialMappingGenerator:
                 for (oa_dim_name, unrolling) in zip(oa_dim_names, combination)
                 if unrolling is not None
             }
+            user_spatial_mapping.update(defined_mapping)
             yield user_spatial_mapping
 
     @staticmethod

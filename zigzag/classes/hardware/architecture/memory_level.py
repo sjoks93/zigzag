@@ -179,6 +179,7 @@ class MemoryLevel:
             "th": "rd_out_to_high",
             "tl": "rd_out_to_low",
         }
+        #print(self.mem_level_of_operands)
         for idx, (op, lv) in enumerate(list(self.mem_level_of_operands.items())):
             for mov, port in self.port_alloc_raw[idx].items():
                 if port is None:

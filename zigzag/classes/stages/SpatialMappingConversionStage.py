@@ -50,6 +50,7 @@ class SpatialMappingConversionStage(Stage):
 
         user_spatial_mapping = self.layer.user_spatial_mapping
         spatial_mapping = self.convert_user_spatial_mapping(user_spatial_mapping)
+
         kwargs = self.kwargs.copy()
         kwargs["spatial_mapping"] = spatial_mapping
         kwargs["accelerator"] = self.accelerator
@@ -158,7 +159,6 @@ class SpatialMappingConversionStage(Stage):
                 spatial_loop for (dim_name, spatial_loop) in user_sm_copy.items()
             ]
             spatial_mapping_dict[layer_op].append(top_level_spatial_mapping)
-
         return SpatialMapping(
             spatial_mapping_dict=spatial_mapping_dict, layer_node=self.layer
         )

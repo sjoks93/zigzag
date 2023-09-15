@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Tuple
 from math import ceil
 import numpy as np
-
+import copy
 from zigzag.classes.mapping.combined_mapping import Mapping
 from zigzag.classes.mapping.combined_mapping import FourWayDataMoving
 from zigzag.utils import pickle_deepcopy
@@ -123,7 +123,6 @@ def calc_MUW_union(port_duty_list):
 
     """ pre-process the port_duty_list to generate input_dict, which looks like:
     input_dict = {'O1': {'P': 3, 'A': 1, 'PC': 8}, 'O2': {'P': 6, 'A': 2, 'PC': 4}, 'O3': {'P': 12, 'A': 4, 'PC': 2}}"""
-
     input_dict = {}
     for port_duty in port_duty_list:
         """as long as one of the port duty can make use of the whole computation time, the MUW union is set to
@@ -267,8 +266,8 @@ class CostModelEvaluation:
         return {
             "outputs": {
                 "memory": {
-                    "utilization": self.mem_utili_shared
-                    if hasattr(self, "mem_utili_shared")
+                    "utilization": self.mem_utili_individual
+                    if hasattr(self, "mem_utili_individual")
                     else None,
                     "word_accesses": self.memory_word_access,
                 },
@@ -283,6 +282,9 @@ class CostModelEvaluation:
                     "data_onloading": self.latency_total1 - self.latency_total0,
                     "computation": self.latency_total0,
                     "data_offloading": self.latency_total2 - self.latency_total1,
+                },
+                "psum flag": {
+                    "flag": self.mapping.psum_flag
                 },
                 "spatial": {
                     "mac_utilization": {
@@ -401,6 +403,8 @@ class CostModelEvaluation:
                 data_precision = self.mapping.unit_mem_data_movement[layer_op][
                     mem_lv
                 ].data_precision.wr_in_by_low
+
+
                 if data_elem_move_per_period == 0 or data_precision == 0:
                     wr_in_by_low = 0
                 else:
@@ -566,12 +570,14 @@ class CostModelEvaluation:
                         * self.mapping.spatial_mapping.unit_count[layer_op][mem_lv + 1]
                     )
 
+
+                
+
                 """ All """
                 memory_word_access_single = FourWayDataMoving(
                     rd_out_to_low, wr_in_by_low, rd_out_to_high, wr_in_by_high
                 )
                 memory_word_access[layer_op].append(memory_word_access_single)
-
         self.memory_word_access = memory_word_access
 
     def calc_energy(self):
@@ -728,7 +734,6 @@ class CostModelEvaluation:
         real_data_trans_cycle = {}
         """ stall (+) or slack (-) cycle within each period per virtual data transfer link (DTL) """
         DTL_SS_cycle = {}
-
         for layer_op in self.layer.operand_list:
             allowed_mem_updat_cycle[layer_op] = []
             real_data_trans_cycle[layer_op] = []
@@ -918,6 +923,7 @@ class CostModelEvaluation:
         self.SS_comb_collect = SS_comb_collect
         """ Assuming all the memory ports can work in parallel """
         self.SS_comb = max(SS_comb_list)
+        print(self.SS_comb)
 
     def calc_data_loading_offloading_latency(self):
         """Calculate the initial/final data loading/off-loading cycle by separating out
@@ -929,6 +935,18 @@ class CostModelEvaluation:
         data_loading_cc_per_op = {op: {} for op in self.layer.input_operands}
         data_offloading_per_mem_inst = []
         data_offloading_cc_per_op = {}
+        data_offloading_cc_per_op [self.layer.output_operand] = {}
+        operand_offload_list = []
+        operand_offload_list.append(self.layer_op_to_mem_op[self.layer.output_operand])
+        operand_load_list = []
+        for layer_op in self.layer.input_operands:
+            operand_load_list.append(self.layer_op_to_mem_op[layer_op])
+        if(self.layer.state):
+            data_loading_cc_per_op[self.layer.state_operand] = {}
+            data_offloading_cc_per_op[self.layer.state_operand] = {}
+            operand_load_list.append(self.layer_op_to_mem_op[self.layer.state_operand])
+            operand_offload_list.append(self.layer_op_to_mem_op[self.layer.state_operand])
+            
         for mem_inst_idx, mem_instance in enumerate(self.mem_instance_list):
             data_loading_single = {}
             data_offloading_single = {}
@@ -937,7 +955,7 @@ class CostModelEvaluation:
                 data_loading_single[str(port)] = []
                 data_offloading_single[str(port)] = []
                 served_operands = set(
-                    s[0] for s in port.served_op_lv_dir if s[0] in ["I1", "I2"]
+                    s[0] for s in port.served_op_lv_dir if s[0] in operand_load_list
                 )
                 port_is_shared_by_two_input_operands = len(served_operands) > 1
                 for mem_op, mem_lv, mov_dir in port.served_op_lv_dir:
@@ -954,7 +972,7 @@ class CostModelEvaluation:
                     if period_count == 0:
                         """skip for the inactive data movement"""
                         continue
-                    if mem_op in ["I1", "I2"]:
+                    if mem_op in operand_load_list:
                         real_cycle = getattr(
                             self.real_data_trans_cycle[layer_op][mem_lv], mov_dir
                         )
@@ -1059,6 +1077,8 @@ class CostModelEvaluation:
                     i.e. on one memory side, the port is shared, while on another memory side,
                     there are different memories with separate ports"""
                     data_loading_half_shared_part[layer_op] = longest_loading_cc
+
+        #if(self.layer.state):
 
         if len(self.layer.input_operands) == 1:
             data_loading_cycle = data_loading_individual_part[
